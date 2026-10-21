@@ -60,7 +60,8 @@ const TLS_CODES = new Set([
 ]);
 
 const PAGE_SIZE = 500;
-const MAX_PAGES = 20;
+// 20 000 tasks: the done ones pile up forever on the server.
+const MAX_PAGES = 40;
 
 function networkError(err) {
   if (TLS_CODES.has(err.code)) {
@@ -158,9 +159,11 @@ export class MindwtrClient {
       items.push(...answer[key]);
       const total = Number.isInteger(answer.total) ? answer.total : items.length;
       if (answer[key].length === 0 || items.length >= total) {
-        break;
+        return items;
       }
     }
+    // Said once by the hub: past this, the counters miss the last tasks.
+    this.truncated = true;
     return items;
   }
 

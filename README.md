@@ -107,7 +107,8 @@ reverse proxy with a path prefix or an HTTPS certificate.
   them. Areas are not used; reference notes are not counted.
 - A change made in an app shows up within the refresh interval, once the app
   has synced.
-- Up to 20 pages of 500 open tasks are read.
+- Up to 40 pages of 500 tasks are read per list (open, done); beyond, a warning
+  is logged once.
 
 ## Development
 

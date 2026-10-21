@@ -420,3 +420,33 @@ test('two taps on the same button complete the task once', async (t) => {
     'one more occurrence, not two',
   );
 });
+
+test('a partial failure at a shared midnight repeats no event already sent', async (t) => {
+  const clock = createClock();
+  const w = await world(t, { clock });
+  const publish = w.gladys.publishSceneEvent.bind(w.gladys);
+  let calls = 0;
+  t.mock.method(w.gladys, 'publishSceneEvent', async (key, data) => {
+    calls += 1;
+    if (calls === 2) {
+      throw new Error('Gladys is restarting');
+    }
+    return publish(key, data);
+  });
+  clock.time = at(21, 22, 0, 2); // midnight in Paris: four events share it
+  await w.hub.poll();
+  clock.advance(60_000);
+  await w.hub.poll();
+  const sent = events(w);
+  assert.equal(sent.length, 4, sent.join('\n'));
+  assert.equal(new Set(sent).size, 4, 'no duplicate');
+});
+
+test('a very long title is cut in the event, which Gladys accepts', async (t) => {
+  const clock = createClock();
+  const w = await world(t, { clock });
+  clock.advance(60_000);
+  w.server.add('x'.repeat(1500));
+  await w.hub.poll();
+  assert.equal(w.fake.sceneEvents.at(-1).data.task.length, 500);
+});

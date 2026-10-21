@@ -153,6 +153,7 @@ test('due dates typed in a scene, in the four languages', () => {
   assert.equal(parse('aujourd’hui'), '2026-10-21');
   assert.equal(parse('hoy'), '2026-10-21');
   assert.equal(parse('18:30'), '2026-10-21T18:30');
+  assert.equal(parse('9:00'), '2026-10-22T09:00', 'a time already passed: tomorrow');
   assert.equal(parse(''), null);
   assert.equal(parse(undefined), null);
   assert.equal(parse('next week'), undefined);

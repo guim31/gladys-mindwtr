@@ -81,6 +81,7 @@ const OWN_CREATION_MS = 30 * 60_000;
 const FOLLOW_UP_MS = 60_000;
 
 const MAX_TITLE_LENGTH = 500;
+const EVENT_TEXT_MAX = 500;
 
 const tokenHash = (token) => createHash('sha256').update(token).digest('hex').slice(0, 16);
 
@@ -130,7 +131,7 @@ export class MindwtrHub {
     this.config = null;
     this.client = null;
     this.reset();
-    this.saved = { scope: null, readAt: 0, knownIds: [], inboxFiredAt: 0 };
+    this.saved = { scope: null, readAt: 0, knownIds: [], inboxFiredAt: 0, sentKeys: [] };
     /** Tasks added from Gladys, by id → time: `from_gladys` of "task added". */
     this.ownCreations = new Map();
     this.connection = null;
@@ -190,6 +191,9 @@ export class MindwtrHub {
         ? saved.knownIds.filter((id) => typeof id === 'string')
         : [],
       inboxFiredAt: Number.isFinite(saved.inboxFiredAt) ? saved.inboxFiredAt : 0,
+      sentKeys: Array.isArray(saved.sentKeys)
+        ? saved.sentKeys.filter((key) => typeof key === 'string')
+        : [],
     };
     await this.reconfigure(config);
   }
@@ -280,7 +284,9 @@ export class MindwtrHub {
       moments.push(review);
     }
     const ahead = moments.filter(
-      (moment) => moment > readAt && moment + this.timings.wakeSlackMs > now,
+      // A moment that passed during a long reading still wakes the next one
+      // (minDelayMs keeps it from looping).
+      (moment) => moment > readAt,
     );
     const wake =
       ahead.length === 0 ? Infinity : Math.min(...ahead) - now + this.timings.wakeSlackMs;
@@ -325,6 +331,12 @@ export class MindwtrHub {
       this.done = parseDone(done);
       this.projects = parseProjects(projects);
       this.readAt = now;
+      if (client.truncated) {
+        this.problem(
+          'truncated',
+          'More than 20000 tasks in a list: the oldest pages only are read',
+        );
+      }
       this.recovered(now);
     } catch (err) {
       if (client !== this.client) {
@@ -532,6 +544,7 @@ export class MindwtrHub {
         scope,
         readAt: now,
         knownIds: openIds.slice(-MAX_KNOWN),
+        sentKeys: [],
         inboxFiredAt: old ? now : 0,
       });
       return;
@@ -561,18 +574,36 @@ export class MindwtrHub {
     events.sort((a, b) => a.at - b.at);
 
     let readAt = now;
+    // Events of the moment where the previous reading stopped, already sent:
+    // several all-day tasks share their midnight.
+    const sentBefore = new Set(this.saved.sentKeys ?? []);
+    let sentKeys = [];
+    const sentNow = [];
     for (const { at, key, data } of events) {
+      const id = `${key}|${data.task_id}|${at}`;
+      if (sentBefore.has(id)) {
+        sentNow.push(id);
+        continue;
+      }
       if (!(await this.fire(key, data))) {
         // Gladys refused (restarting?): this event and the next ones are
         // tried again at the next reading, within the hour.
         readAt = at - 1;
+        sentKeys = sentNow.filter((item) => item.endsWith(`|${at}`));
         break;
       }
+      sentNow.push(id);
     }
 
     // Tasks that appeared: new ids, created recently, not the next occurrence
     // of a repeating task just completed.
     const known = new Set(this.saved.knownIds);
+    // Done recently: still known, so a task reopened by mistake is not "added".
+    const recentDoneIds = this.done
+      .filter(
+        (task) => task.completedAt !== null && now - task.completedAt <= this.timings.addedWindowMs,
+      )
+      .map((task) => task.id);
     const unsent = new Set();
     for (const task of this.tasks) {
       if (known.has(task.id)) {
@@ -617,19 +648,22 @@ export class MindwtrHub {
     this.save({
       scope,
       readAt: Math.max(readAt, this.saved.readAt),
-      knownIds: openIds.filter((id) => !unsent.has(id)).slice(-MAX_KNOWN),
+      knownIds: [...openIds.filter((id) => !unsent.has(id)), ...recentDoneIds].slice(-MAX_KNOWN),
       inboxFiredAt,
+      sentKeys,
     });
   }
 
   eventData(task) {
     return {
-      task: task.title,
+      // The SDK refuses a scene event string over 1000 characters: a refused
+      // event would be retried, and block the next ones, for an hour.
+      task: task.title.slice(0, EVENT_TEXT_MAX),
       task_id: task.id,
       status: task.status,
-      contexts: task.contexts.join(' '),
-      project_name: this.projectTitle(task.projectId),
-      due_date: task.dueDate,
+      contexts: task.contexts.join(' ').slice(0, EVENT_TEXT_MAX),
+      project_name: this.projectTitle(task.projectId).slice(0, EVENT_TEXT_MAX),
+      due_date: task.dueDate.slice(0, 40),
       all_day: task.allDay,
     };
   }

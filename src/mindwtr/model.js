@@ -334,7 +334,10 @@ export function parseDueInput(value, { now, timeZone }) {
   let month;
   let day;
   if (datePart === '' && time) {
-    ({ year, month, day } = today);
+    // A time alone: today, or tomorrow when it has already passed.
+    const passed = time <= `T${pad(today.hour)}:${pad(today.minute)}`;
+    const date = new Date(Date.UTC(today.year, today.month - 1, today.day + (passed ? 1 : 0)));
+    [year, month, day] = [date.getUTCFullYear(), date.getUTCMonth() + 1, date.getUTCDate()];
   } else if (TODAY_WORDS.has(datePart) || TOMORROW_WORDS.has(datePart)) {
     const shift = TOMORROW_WORDS.has(datePart) ? 1 : 0;
     const date = new Date(Date.UTC(today.year, today.month - 1, today.day + shift));
