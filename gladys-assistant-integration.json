@@ -1,177 +1,1056 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "name": "Demo Devices Template",
+  "name": "Mindwtr",
   "description": {
-    "en": "Starter template showing sensors, a switch, a dimmable light and a smart plug.",
-    "fr": "Template de démarrage : capteurs, interrupteur, lampe variable et prise connectée."
+    "en": "Mindwtr GTD tasks via its sync server: inbox, today's and overdue tasks, capture from a scene.",
+    "fr": "Tâches GTD Mindwtr par son serveur de synchro : boîte de réception, jour, retard, ajout par scène.",
+    "de": "Mindwtr-GTD-Aufgaben über den Sync-Server: Eingang, heute, überfällig, Erfassen per Szene.",
+    "es": "Tareas GTD de Mindwtr vía su servidor: bandeja de entrada, hoy, atrasadas, captura por escena."
   },
   "version": "1.0.0",
-  "docker_image": "ghcr.io/gladysassistant/integration-template-js:1.0.0",
+  "docker_image": "ghcr.io/guim31/gladys-mindwtr:1.0.0",
   "gladys_version": ">=5.1.0",
-  "cover_image": "https://raw.githubusercontent.com/GladysAssistant/integration-template-js/master/cover.png",
-  "categories": ["lighting", "security", "environment"],
+  "cover_image": "https://raw.githubusercontent.com/guim31/gladys-mindwtr/main/cover.png",
+  "categories": ["services"],
   "transports": ["local", "cloud"],
   "config_schema": [
     {
       "key": "intro",
       "type": "section",
-      "label": { "en": "Getting started", "fr": "Pour commencer" },
+      "label": {
+        "en": "Your Mindwtr sync server",
+        "fr": "Votre serveur de synchronisation Mindwtr",
+        "de": "Dein Mindwtr-Sync-Server",
+        "es": "Su servidor de sincronización Mindwtr"
+      },
       "description": {
-        "en": "The demo weather station reads real data from the free Open-Meteo API: pick the coordinates to observe. No account, no API key.",
-        "fr": "La station météo de démonstration lit de vraies données via l'API gratuite Open-Meteo : choisissez les coordonnées à observer. Pas de compte, pas de clé d'API."
+        "en": "The self-hosted sync server of Mindwtr (mindwtr-cloud, Docker image). Dropbox and WebDAV sync are not supported: the integration needs this server.",
+        "fr": "Le serveur de synchronisation auto-hébergé de Mindwtr (mindwtr-cloud, image Docker). Les synchros Dropbox et WebDAV ne conviennent pas : il faut ce serveur.",
+        "de": "Der selbst gehostete Sync-Server von Mindwtr (mindwtr-cloud, Docker-Image). Dropbox- und WebDAV-Sync gehen nicht: Die Integration braucht diesen Server.",
+        "es": "El servidor de sincronización autoalojado de Mindwtr (mindwtr-cloud, imagen Docker). La sincronización Dropbox o WebDAV no sirve: la integración necesita este servidor."
       },
       "links": [
         {
-          "url": "https://open-meteo.com/en/docs",
-          "label": { "en": "Open-Meteo documentation", "fr": "Documentation Open-Meteo" }
+          "url": "https://github.com/dongdongbh/Mindwtr/blob/main/docker/README.md",
+          "label": {
+            "en": "Install the sync server",
+            "fr": "Installer le serveur de synchronisation",
+            "de": "Sync-Server installieren",
+            "es": "Instalar el servidor de sincronización"
+          }
         }
       ]
     },
     {
-      "key": "latitude",
-      "type": "number",
-      "label": { "en": "Latitude", "fr": "Latitude" },
-      "description": {
-        "en": "Latitude used for the demo weather sensor.",
-        "fr": "Latitude utilisée par le capteur météo de démonstration."
+      "key": "url",
+      "type": "string",
+      "label": {
+        "en": "Address",
+        "fr": "Adresse",
+        "de": "Adresse",
+        "es": "Dirección"
       },
-      "placeholder": { "en": "e.g. 48.8566", "fr": "ex. 48.8566" },
+      "description": {
+        "en": "The Self-Hosted URL of the app's sync settings, with :port (8787 by default) and https:// for HTTPS.",
+        "fr": "L'URL « Self-Hosted » des réglages de synchronisation de l'appli, avec :port (8787 par défaut) et https:// pour le HTTPS.",
+        "de": "Die Self-Hosted-URL aus den Sync-Einstellungen der App, mit :Port (standardmäßig 8787) und https:// für HTTPS.",
+        "es": "La URL Self-Hosted de los ajustes de sincronización de la aplicación, con :puerto (8787 por defecto) y https:// para HTTPS."
+      },
+      "placeholder": {
+        "en": "e.g. http://192.168.1.20:8787",
+        "fr": "ex. http://192.168.1.20:8787",
+        "de": "z. B. http://192.168.1.20:8787",
+        "es": "p. ej. http://192.168.1.20:8787"
+      },
       "required": true,
-      "default": 48.8566,
-      "min": -90,
-      "max": 90
+      "default": ""
     },
     {
-      "key": "longitude",
-      "type": "number",
-      "label": { "en": "Longitude", "fr": "Longitude" },
-      "description": {
-        "en": "Longitude used for the demo weather sensor.",
-        "fr": "Longitude utilisée par le capteur météo de démonstration."
+      "key": "api_token",
+      "type": "secret",
+      "label": {
+        "en": "Sync token",
+        "fr": "Jeton de synchronisation",
+        "de": "Sync-Token",
+        "es": "Token de sincronización"
       },
-      "placeholder": { "en": "e.g. 2.3522", "fr": "ex. 2.3522" },
-      "required": true,
-      "default": 2.3522,
-      "min": -180,
-      "max": 180
+      "description": {
+        "en": "The token of the app's sync settings, one of MINDWTR_CLOUD_AUTH_TOKENS of the server. Each token is its own task list.",
+        "fr": "Le jeton des réglages de synchronisation de l'appli, l'un des MINDWTR_CLOUD_AUTH_TOKENS du serveur. Chaque jeton a sa propre liste de tâches.",
+        "de": "Das Token aus den Sync-Einstellungen der App, eines der MINDWTR_CLOUD_AUTH_TOKENS des Servers. Jedes Token hat seine eigene Aufgabenliste.",
+        "es": "El token de los ajustes de sincronización de la aplicación, uno de los MINDWTR_CLOUD_AUTH_TOKENS del servidor. Cada token tiene su propia lista de tareas."
+      },
+      "required": true
     },
     {
-      "key": "unit",
+      "key": "options",
+      "type": "section",
+      "label": {
+        "en": "Options",
+        "fr": "Options",
+        "de": "Optionen",
+        "es": "Opciones"
+      }
+    },
+    {
+      "key": "inbox_review_hours",
       "type": "select",
-      "label": { "en": "Temperature unit", "fr": "Unité de température" },
+      "label": {
+        "en": "Inbox review after",
+        "fr": "Revue de la boîte de réception après",
+        "de": "Eingangs-Durchsicht nach",
+        "es": "Revisión de la bandeja de entrada tras"
+      },
+      "description": {
+        "en": "The \"Inbox to review\" scene event fires when an item has waited this long in the inbox, then again at the same interval until the inbox is empty.",
+        "fr": "L'événement de scène « Boîte de réception à traiter » se déclenche quand un élément y attend depuis ce délai, puis au même rythme jusqu'à ce qu'elle soit vide.",
+        "de": "Das Szenen-Ereignis „Eingang durchsehen“ wird ausgelöst, wenn ein Eintrag so lange im Eingang wartet, dann im selben Abstand, bis der Eingang leer ist.",
+        "es": "El evento de escena «Bandeja de entrada por revisar» se activa cuando un elemento lleva este tiempo esperando, y luego al mismo ritmo hasta que esté vacía."
+      },
       "required": false,
-      "default": "celsius",
+      "default": "24",
       "options": [
-        { "value": "celsius", "label": { "en": "Celsius", "fr": "Celsius" } },
-        { "value": "fahrenheit", "label": { "en": "Fahrenheit", "fr": "Fahrenheit" } }
+        {
+          "value": "4",
+          "label": {
+            "en": "4 hours",
+            "fr": "4 heures",
+            "de": "4 Stunden",
+            "es": "4 horas"
+          }
+        },
+        {
+          "value": "12",
+          "label": {
+            "en": "12 hours",
+            "fr": "12 heures",
+            "de": "12 Stunden",
+            "es": "12 horas"
+          }
+        },
+        {
+          "value": "24",
+          "label": {
+            "en": "24 hours",
+            "fr": "24 heures",
+            "de": "24 Stunden",
+            "es": "24 horas"
+          }
+        },
+        {
+          "value": "48",
+          "label": {
+            "en": "48 hours",
+            "fr": "48 heures",
+            "de": "48 Stunden",
+            "es": "48 horas"
+          }
+        },
+        {
+          "value": "72",
+          "label": {
+            "en": "72 hours",
+            "fr": "72 heures",
+            "de": "72 Stunden",
+            "es": "72 horas"
+          }
+        },
+        {
+          "value": "168",
+          "label": {
+            "en": "1 week",
+            "fr": "1 semaine",
+            "de": "1 Woche",
+            "es": "1 semana"
+          }
+        }
       ]
     },
     {
-      "key": "poll_frequency",
-      "type": "number",
-      "label": { "en": "Refresh interval (s)", "fr": "Intervalle de rafraîchissement (s)" },
+      "key": "allow_self_signed",
+      "type": "boolean",
+      "label": {
+        "en": "Accept self-signed certificates",
+        "fr": "Accepter les certificats auto-signés",
+        "de": "Selbstsignierte Zertifikate akzeptieren",
+        "es": "Aceptar certificados autofirmados"
+      },
       "description": {
-        "en": "How often sensors are polled, in seconds (one minute minimum).",
-        "fr": "Fréquence d'interrogation des capteurs, en secondes (une minute minimum)."
+        "en": "For an https:// address whose certificate is self-signed (Caddy's local CA). Tick only for your own server.",
+        "fr": "Pour une adresse en https:// dont le certificat est auto-signé (autorité locale de Caddy). À cocher pour votre propre serveur seulement.",
+        "de": "Für eine https://-Adresse mit selbstsigniertem Zertifikat (lokale CA von Caddy). Nur für deinen eigenen Server aktivieren.",
+        "es": "Para una dirección https:// con certificado autofirmado (CA local de Caddy). Márquelo solo para su propio servidor."
       },
       "required": false,
-      "default": 300,
-      "min": 60,
-      "max": 3600
+      "default": false
+    },
+    {
+      "key": "poll_interval",
+      "type": "select",
+      "label": {
+        "en": "Refresh interval",
+        "fr": "Intervalle de rafraîchissement",
+        "de": "Aktualisierungsintervall",
+        "es": "Intervalo de actualización"
+      },
+      "description": {
+        "en": "How often the server is read. Due times and midnight are always followed on time.",
+        "fr": "Fréquence de lecture du serveur. Les échéances et minuit sont toujours suivis à l'heure.",
+        "de": "Wie oft der Server gelesen wird. Fälligkeiten und Mitternacht werden immer pünktlich berücksichtigt.",
+        "es": "Con qué frecuencia se lee el servidor. Los vencimientos y la medianoche se siguen siempre a tiempo."
+      },
+      "required": false,
+      "default": "300",
+      "options": [
+        {
+          "value": "60",
+          "label": {
+            "en": "1 minute",
+            "fr": "1 minute",
+            "de": "1 Minute",
+            "es": "1 minuto"
+          }
+        },
+        {
+          "value": "120",
+          "label": {
+            "en": "2 minutes",
+            "fr": "2 minutes",
+            "de": "2 Minuten",
+            "es": "2 minutos"
+          }
+        },
+        {
+          "value": "300",
+          "label": {
+            "en": "5 minutes",
+            "fr": "5 minutes",
+            "de": "5 Minuten",
+            "es": "5 minutos"
+          }
+        },
+        {
+          "value": "600",
+          "label": {
+            "en": "10 minutes",
+            "fr": "10 minutes",
+            "de": "10 Minuten",
+            "es": "10 minutos"
+          }
+        }
+      ]
+    },
+    {
+      "key": "language",
+      "type": "select",
+      "label": {
+        "en": "Language of the feature names",
+        "fr": "Langue des noms de fonctionnalités",
+        "de": "Sprache der Funktionsnamen",
+        "es": "Idioma de los nombres de funciones"
+      },
+      "description": {
+        "en": "Names given to the features when the device is added, and texts sent to scenes.",
+        "fr": "Noms donnés aux fonctionnalités à l'ajout de l'appareil, et textes envoyés aux scènes.",
+        "de": "Namen der Funktionen beim Hinzufügen des Geräts und an Szenen gesendete Texte.",
+        "es": "Nombres de las funciones al añadir el dispositivo y textos enviados a las escenas."
+      },
+      "required": false,
+      "default": "fr",
+      "options": [
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais",
+            "de": "Englisch",
+            "es": "Inglés"
+          }
+        },
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français",
+            "de": "Französisch",
+            "es": "Francés"
+          }
+        },
+        {
+          "value": "de",
+          "label": {
+            "en": "German",
+            "fr": "Allemand",
+            "de": "Deutsch",
+            "es": "Alemán"
+          }
+        },
+        {
+          "value": "es",
+          "label": {
+            "en": "Spanish",
+            "fr": "Espagnol",
+            "de": "Spanisch",
+            "es": "Español"
+          }
+        }
+      ]
     }
   ],
   "actions": [
     {
-      "key": "test_weather",
-      "label": { "en": "Test the weather provider", "fr": "Tester le fournisseur météo" },
+      "key": "test_connection",
+      "label": {
+        "en": "Test the connection",
+        "fr": "Tester la connexion",
+        "de": "Verbindung testen",
+        "es": "Probar la conexión"
+      },
+      "description": {
+        "en": "Reads the sync server now and reports what it finds.",
+        "fr": "Lit le serveur de synchronisation maintenant et indique ce qu'il trouve.",
+        "de": "Liest den Sync-Server sofort und meldet, was es findet.",
+        "es": "Lee el servidor de sincronización ahora e indica lo que encuentra."
+      },
       "timeout_seconds": 30
-    },
-    {
-      "key": "identify",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "fields": [
-        {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
-        }
-      ]
     }
   ],
   "scene_triggers": [
     {
-      "key": "motion_detected",
-      "label": { "en": "Motion detected", "fr": "Mouvement détecté" },
+      "key": "task_due",
+      "label": {
+        "en": "Mindwtr task due",
+        "fr": "Tâche Mindwtr arrivée à échéance",
+        "de": "Mindwtr-Aufgabe fällig",
+        "es": "Tarea de Mindwtr vencida"
+      },
       "description": {
-        "en": "A demo motion sensor saw a person or an animal move.",
-        "fr": "Un détecteur de démonstration a vu bouger une personne ou un animal."
+        "en": "An open task reaches its due time; a due date without a time, at the start of that day.",
+        "fr": "Une tâche ouverte arrive à son heure d'échéance ; une échéance sans heure, au début de ce jour-là.",
+        "de": "Eine offene Aufgabe erreicht ihre Fälligkeit; eine Fälligkeit ohne Uhrzeit zu Beginn dieses Tages.",
+        "es": "Una tarea abierta llega a su hora de vencimiento; un vencimiento sin hora, al empezar ese día."
       },
       "fields": [
         {
-          "key": "device",
+          "key": "status",
           "type": "select",
-          "source": "devices",
-          "label": { "en": "Sensor", "fr": "Détecteur" }
+          "label": {
+            "en": "GTD list (empty: any)",
+            "fr": "Liste GTD (vide : toutes)",
+            "de": "GTD-Liste (leer: beliebig)",
+            "es": "Lista GTD (vacío: cualquiera)"
+          },
+          "options": [
+            {
+              "value": "inbox",
+              "label": {
+                "en": "Inbox",
+                "fr": "Boîte de réception",
+                "de": "Eingang",
+                "es": "Bandeja de entrada"
+              }
+            },
+            {
+              "value": "next",
+              "label": {
+                "en": "Next actions",
+                "fr": "Prochaines actions",
+                "de": "Nächste Schritte",
+                "es": "Próximas acciones"
+              }
+            },
+            {
+              "value": "waiting",
+              "label": {
+                "en": "Waiting for",
+                "fr": "En attente",
+                "de": "Wartet auf",
+                "es": "En espera"
+              }
+            },
+            {
+              "value": "someday",
+              "label": {
+                "en": "Someday/Maybe",
+                "fr": "Un jour/peut-être",
+                "de": "Irgendwann/Vielleicht",
+                "es": "Algún día/Quizás"
+              }
+            }
+          ]
         },
         {
-          "key": "target",
-          "type": "multi_select",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" },
+          "key": "task",
+          "type": "string",
+          "label": {
+            "en": "Task title (empty: any)",
+            "fr": "Titre de la tâche (vide : toutes)",
+            "de": "Titel der Aufgabe (leer: beliebig)",
+            "es": "Título de la tarea (vacío: cualquiera)"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "task",
+          "type": "string",
+          "label": {
+            "en": "Task",
+            "fr": "Tâche",
+            "de": "Aufgabe",
+            "es": "Tarea"
+          }
+        },
+        {
+          "key": "task_id",
+          "type": "string",
+          "label": {
+            "en": "Task id",
+            "fr": "Identifiant de la tâche",
+            "de": "ID der Aufgabe",
+            "es": "Identificador de la tarea"
+          }
+        },
+        {
+          "key": "status",
+          "type": "string",
+          "label": {
+            "en": "GTD list (inbox, next, waiting, someday)",
+            "fr": "Liste GTD (inbox, next, waiting, someday)",
+            "de": "GTD-Liste (inbox, next, waiting, someday)",
+            "es": "Lista GTD (inbox, next, waiting, someday)"
+          }
+        },
+        {
+          "key": "contexts",
+          "type": "string",
+          "label": {
+            "en": "Contexts (@home…)",
+            "fr": "Contextes (@maison…)",
+            "de": "Kontexte (@zuhause…)",
+            "es": "Contextos (@casa…)"
+          }
+        },
+        {
+          "key": "project_name",
+          "type": "string",
+          "label": {
+            "en": "Project",
+            "fr": "Projet",
+            "de": "Projekt",
+            "es": "Proyecto"
+          }
+        },
+        {
+          "key": "due_date",
+          "type": "string",
+          "label": {
+            "en": "Due date (as in Mindwtr)",
+            "fr": "Échéance (telle que dans Mindwtr)",
+            "de": "Fälligkeit (wie in Mindwtr)",
+            "es": "Vencimiento (como en Mindwtr)"
+          }
+        },
+        {
+          "key": "all_day",
+          "type": "boolean",
+          "label": {
+            "en": "Due date without a time",
+            "fr": "Échéance sans heure",
+            "de": "Fälligkeit ohne Uhrzeit",
+            "es": "Vencimiento sin hora"
+          }
+        }
+      ]
+    },
+    {
+      "key": "task_overdue",
+      "label": {
+        "en": "Mindwtr task overdue",
+        "fr": "Tâche Mindwtr en retard",
+        "de": "Mindwtr-Aufgabe überfällig",
+        "es": "Tarea de Mindwtr atrasada"
+      },
+      "description": {
+        "en": "A task is still open when its due day ends (at midnight).",
+        "fr": "Une tâche est toujours ouverte à la fin de son jour d'échéance (à minuit).",
+        "de": "Eine Aufgabe ist am Ende ihres Fälligkeitstages (um Mitternacht) noch offen.",
+        "es": "Una tarea sigue abierta al terminar su día de vencimiento (a medianoche)."
+      },
+      "fields": [
+        {
+          "key": "status",
+          "type": "select",
+          "label": {
+            "en": "GTD list (empty: any)",
+            "fr": "Liste GTD (vide : toutes)",
+            "de": "GTD-Liste (leer: beliebig)",
+            "es": "Lista GTD (vacío: cualquiera)"
+          },
           "options": [
-            { "value": "person", "label": { "en": "Person", "fr": "Personne" } },
-            { "value": "animal", "label": { "en": "Animal", "fr": "Animal" } }
+            {
+              "value": "inbox",
+              "label": {
+                "en": "Inbox",
+                "fr": "Boîte de réception",
+                "de": "Eingang",
+                "es": "Bandeja de entrada"
+              }
+            },
+            {
+              "value": "next",
+              "label": {
+                "en": "Next actions",
+                "fr": "Prochaines actions",
+                "de": "Nächste Schritte",
+                "es": "Próximas acciones"
+              }
+            },
+            {
+              "value": "waiting",
+              "label": {
+                "en": "Waiting for",
+                "fr": "En attente",
+                "de": "Wartet auf",
+                "es": "En espera"
+              }
+            },
+            {
+              "value": "someday",
+              "label": {
+                "en": "Someday/Maybe",
+                "fr": "Un jour/peut-être",
+                "de": "Irgendwann/Vielleicht",
+                "es": "Algún día/Quizás"
+              }
+            }
+          ]
+        },
+        {
+          "key": "task",
+          "type": "string",
+          "label": {
+            "en": "Task title (empty: any)",
+            "fr": "Titre de la tâche (vide : toutes)",
+            "de": "Titel der Aufgabe (leer: beliebig)",
+            "es": "Título de la tarea (vacío: cualquiera)"
+          }
+        }
+      ],
+      "variables": [
+        {
+          "key": "task",
+          "type": "string",
+          "label": {
+            "en": "Task",
+            "fr": "Tâche",
+            "de": "Aufgabe",
+            "es": "Tarea"
+          }
+        },
+        {
+          "key": "task_id",
+          "type": "string",
+          "label": {
+            "en": "Task id",
+            "fr": "Identifiant de la tâche",
+            "de": "ID der Aufgabe",
+            "es": "Identificador de la tarea"
+          }
+        },
+        {
+          "key": "status",
+          "type": "string",
+          "label": {
+            "en": "GTD list (inbox, next, waiting, someday)",
+            "fr": "Liste GTD (inbox, next, waiting, someday)",
+            "de": "GTD-Liste (inbox, next, waiting, someday)",
+            "es": "Lista GTD (inbox, next, waiting, someday)"
+          }
+        },
+        {
+          "key": "contexts",
+          "type": "string",
+          "label": {
+            "en": "Contexts (@home…)",
+            "fr": "Contextes (@maison…)",
+            "de": "Kontexte (@zuhause…)",
+            "es": "Contextos (@casa…)"
+          }
+        },
+        {
+          "key": "project_name",
+          "type": "string",
+          "label": {
+            "en": "Project",
+            "fr": "Projet",
+            "de": "Projekt",
+            "es": "Proyecto"
+          }
+        },
+        {
+          "key": "due_date",
+          "type": "string",
+          "label": {
+            "en": "Due date (as in Mindwtr)",
+            "fr": "Échéance (telle que dans Mindwtr)",
+            "de": "Fälligkeit (wie in Mindwtr)",
+            "es": "Vencimiento (como en Mindwtr)"
+          }
+        },
+        {
+          "key": "all_day",
+          "type": "boolean",
+          "label": {
+            "en": "Due date without a time",
+            "fr": "Échéance sans heure",
+            "de": "Fälligkeit ohne Uhrzeit",
+            "es": "Vencimiento sin hora"
+          }
+        }
+      ]
+    },
+    {
+      "key": "inbox_review",
+      "label": {
+        "en": "Mindwtr inbox to review",
+        "fr": "Boîte de réception Mindwtr à traiter",
+        "de": "Mindwtr-Eingang durchsehen",
+        "es": "Bandeja de entrada de Mindwtr por revisar"
+      },
+      "description": {
+        "en": "An item has waited in the inbox for the delay of the configuration (GTD review).",
+        "fr": "Un élément attend dans la boîte de réception depuis le délai de la configuration (revue GTD).",
+        "de": "Ein Eintrag wartet seit der eingestellten Dauer im Eingang (GTD-Durchsicht).",
+        "es": "Un elemento lleva en la bandeja de entrada el tiempo configurado (revisión GTD)."
+      },
+      "variables": [
+        {
+          "key": "inbox_count",
+          "type": "number",
+          "label": {
+            "en": "Tasks in the inbox",
+            "fr": "Tâches dans la boîte de réception",
+            "de": "Aufgaben im Eingang",
+            "es": "Tareas en la bandeja de entrada"
+          }
+        },
+        {
+          "key": "oldest_task",
+          "type": "string",
+          "label": {
+            "en": "Oldest task",
+            "fr": "Tâche la plus ancienne",
+            "de": "Älteste Aufgabe",
+            "es": "Tarea más antigua"
+          }
+        },
+        {
+          "key": "oldest_age_hours",
+          "type": "number",
+          "label": {
+            "en": "Age of the oldest task (hours)",
+            "fr": "Âge de la plus ancienne (heures)",
+            "de": "Alter der ältesten (Stunden)",
+            "es": "Antigüedad de la más antigua (horas)"
+          }
+        }
+      ]
+    },
+    {
+      "key": "task_added",
+      "label": {
+        "en": "Mindwtr task added",
+        "fr": "Tâche Mindwtr ajoutée",
+        "de": "Mindwtr-Aufgabe hinzugefügt",
+        "es": "Tarea de Mindwtr añadida"
+      },
+      "description": {
+        "en": "A new task appears, from an app, the API or Gladys.",
+        "fr": "Une nouvelle tâche apparaît, depuis une appli, l'API ou Gladys.",
+        "de": "Eine neue Aufgabe erscheint, aus einer App, der API oder Gladys.",
+        "es": "Aparece una tarea nueva, desde una aplicación, la API o Gladys."
+      },
+      "fields": [
+        {
+          "key": "status",
+          "type": "select",
+          "label": {
+            "en": "GTD list (empty: any)",
+            "fr": "Liste GTD (vide : toutes)",
+            "de": "GTD-Liste (leer: beliebig)",
+            "es": "Lista GTD (vacío: cualquiera)"
+          },
+          "options": [
+            {
+              "value": "inbox",
+              "label": {
+                "en": "Inbox",
+                "fr": "Boîte de réception",
+                "de": "Eingang",
+                "es": "Bandeja de entrada"
+              }
+            },
+            {
+              "value": "next",
+              "label": {
+                "en": "Next actions",
+                "fr": "Prochaines actions",
+                "de": "Nächste Schritte",
+                "es": "Próximas acciones"
+              }
+            },
+            {
+              "value": "waiting",
+              "label": {
+                "en": "Waiting for",
+                "fr": "En attente",
+                "de": "Wartet auf",
+                "es": "En espera"
+              }
+            },
+            {
+              "value": "someday",
+              "label": {
+                "en": "Someday/Maybe",
+                "fr": "Un jour/peut-être",
+                "de": "Irgendwann/Vielleicht",
+                "es": "Algún día/Quizás"
+              }
+            }
           ]
         }
       ],
       "variables": [
         {
-          "key": "target",
+          "key": "task",
           "type": "string",
-          "label": { "en": "What moved", "fr": "Ce qui a bougé" }
+          "label": {
+            "en": "Task",
+            "fr": "Tâche",
+            "de": "Aufgabe",
+            "es": "Tarea"
+          }
+        },
+        {
+          "key": "task_id",
+          "type": "string",
+          "label": {
+            "en": "Task id",
+            "fr": "Identifiant de la tâche",
+            "de": "ID der Aufgabe",
+            "es": "Identificador de la tarea"
+          }
+        },
+        {
+          "key": "status",
+          "type": "string",
+          "label": {
+            "en": "GTD list (inbox, next, waiting, someday)",
+            "fr": "Liste GTD (inbox, next, waiting, someday)",
+            "de": "GTD-Liste (inbox, next, waiting, someday)",
+            "es": "Lista GTD (inbox, next, waiting, someday)"
+          }
+        },
+        {
+          "key": "contexts",
+          "type": "string",
+          "label": {
+            "en": "Contexts (@home…)",
+            "fr": "Contextes (@maison…)",
+            "de": "Kontexte (@zuhause…)",
+            "es": "Contextos (@casa…)"
+          }
+        },
+        {
+          "key": "project_name",
+          "type": "string",
+          "label": {
+            "en": "Project",
+            "fr": "Projet",
+            "de": "Projekt",
+            "es": "Proyecto"
+          }
+        },
+        {
+          "key": "due_date",
+          "type": "string",
+          "label": {
+            "en": "Due date (as in Mindwtr)",
+            "fr": "Échéance (telle que dans Mindwtr)",
+            "de": "Fälligkeit (wie in Mindwtr)",
+            "es": "Vencimiento (como en Mindwtr)"
+          }
+        },
+        {
+          "key": "all_day",
+          "type": "boolean",
+          "label": {
+            "en": "Due date without a time",
+            "fr": "Échéance sans heure",
+            "de": "Fälligkeit ohne Uhrzeit",
+            "es": "Vencimiento sin hora"
+          }
+        },
+        {
+          "key": "from_gladys",
+          "type": "boolean",
+          "label": {
+            "en": "Added from Gladys",
+            "fr": "Ajoutée depuis Gladys",
+            "de": "Über Gladys hinzugefügt",
+            "es": "Añadida desde Gladys"
+          }
         }
       ]
     }
   ],
   "scene_actions": [
     {
-      "key": "identify_device",
-      "label": { "en": "Identify a device", "fr": "Identifier un appareil" },
-      "description": {
-        "en": "Make a device signal itself (the demo light blinks).",
-        "fr": "Fait se signaler un appareil (la lampe de démonstration clignote)."
+      "key": "add_task",
+      "label": {
+        "en": "Add a task to the Mindwtr inbox",
+        "fr": "Ajouter une tâche dans la boîte de réception Mindwtr",
+        "de": "Aufgabe zum Mindwtr-Eingang hinzufügen",
+        "es": "Añadir una tarea a la bandeja de entrada de Mindwtr"
       },
-      "timeout_seconds": 15,
+      "description": {
+        "en": "Captures a task in the inbox, to be clarified later in the app.",
+        "fr": "Capture une tâche dans la boîte de réception, à clarifier ensuite dans l'appli.",
+        "de": "Erfasst eine Aufgabe im Eingang, später in der App zu klären.",
+        "es": "Captura una tarea en la bandeja de entrada, para aclararla luego en la aplicación."
+      },
+      "timeout_seconds": 20,
       "fields": [
         {
-          "key": "device",
-          "type": "select",
-          "source": "devices",
-          "label": { "en": "Device", "fr": "Appareil" },
-          "required": true
+          "key": "title",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en": "Title",
+            "fr": "Titre",
+            "de": "Titel",
+            "es": "Título"
+          }
+        },
+        {
+          "key": "due_date",
+          "type": "string",
+          "label": {
+            "en": "Due date (optional)",
+            "fr": "Échéance (facultatif)",
+            "de": "Fälligkeit (optional)",
+            "es": "Vencimiento (opcional)"
+          },
+          "description": {
+            "en": "e.g. 2026-10-25, 25/10, tomorrow, tomorrow 18:30.",
+            "fr": "ex. 2026-10-25, 25/10, demain, demain 18h30.",
+            "de": "z. B. 2026-10-25, 25.10., morgen, morgen 18:30.",
+            "es": "p. ej. 2026-10-25, 25/10, mañana, mañana 18:30."
+          }
+        },
+        {
+          "key": "context",
+          "type": "string",
+          "label": {
+            "en": "Contexts (optional)",
+            "fr": "Contextes (facultatif)",
+            "de": "Kontexte (optional)",
+            "es": "Contextos (opcional)"
+          },
+          "description": {
+            "en": "e.g. @home, or several: @phone @errands.",
+            "fr": "ex. @maison, ou plusieurs : @telephone @courses.",
+            "de": "z. B. @zuhause, oder mehrere: @telefon @besorgungen.",
+            "es": "p. ej. @casa, o varios: @telefono @recados."
+          }
         }
       ],
       "outputs": [
         {
-          "key": "signalled",
-          "type": "boolean",
-          "label": { "en": "Device signalled", "fr": "Appareil signalé" }
+          "key": "task",
+          "type": "string",
+          "label": {
+            "en": "Task",
+            "fr": "Tâche",
+            "de": "Aufgabe",
+            "es": "Tarea"
+          }
+        },
+        {
+          "key": "task_id",
+          "type": "string",
+          "label": {
+            "en": "Task id",
+            "fr": "Identifiant de la tâche",
+            "de": "ID der Aufgabe",
+            "es": "Identificador de la tarea"
+          }
+        },
+        {
+          "key": "due_date",
+          "type": "string",
+          "label": {
+            "en": "Due date (as in Mindwtr)",
+            "fr": "Échéance (telle que dans Mindwtr)",
+            "de": "Fälligkeit (wie in Mindwtr)",
+            "es": "Vencimiento (como en Mindwtr)"
+          }
+        }
+      ]
+    },
+    {
+      "key": "complete_task",
+      "label": {
+        "en": "Mark a Mindwtr task done",
+        "fr": "Terminer une tâche Mindwtr",
+        "de": "Mindwtr-Aufgabe erledigen",
+        "es": "Terminar una tarea de Mindwtr"
+      },
+      "description": {
+        "en": "Marks an open task done; a repeating one gets its next occurrence.",
+        "fr": "Marque une tâche ouverte comme terminée ; une tâche répétée passe à l'occurrence suivante.",
+        "de": "Markiert eine offene Aufgabe als erledigt; eine wiederkehrende bekommt ihr nächstes Vorkommen.",
+        "es": "Marca una tarea abierta como terminada; una periódica pasa a su siguiente repetición."
+      },
+      "timeout_seconds": 20,
+      "fields": [
+        {
+          "key": "task",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en": "Task title or id",
+            "fr": "Titre ou identifiant de la tâche",
+            "de": "Titel oder ID der Aufgabe",
+            "es": "Título o identificador de la tarea"
+          },
+          "description": {
+            "en": "The title as written in Mindwtr (case and accents ignored), or the task_id of an event.",
+            "fr": "Le titre tel qu'écrit dans Mindwtr (majuscules et accents ignorés), ou le task_id d'un événement.",
+            "de": "Der Titel wie in Mindwtr geschrieben (Groß- und Kleinschreibung und Akzente egal) oder die task_id eines Ereignisses.",
+            "es": "El título tal como está en Mindwtr (sin distinguir mayúsculas ni acentos), o el task_id de un evento."
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "key": "task",
+          "type": "string",
+          "label": {
+            "en": "Task",
+            "fr": "Tâche",
+            "de": "Aufgabe",
+            "es": "Tarea"
+          }
+        },
+        {
+          "key": "task_id",
+          "type": "string",
+          "label": {
+            "en": "Task id",
+            "fr": "Identifiant de la tâche",
+            "de": "ID der Aufgabe",
+            "es": "Identificador de la tarea"
+          }
+        }
+      ]
+    },
+    {
+      "key": "read_today",
+      "label": {
+        "en": "Read today's Mindwtr tasks",
+        "fr": "Lire les tâches Mindwtr du jour",
+        "de": "Heutige Mindwtr-Aufgaben lesen",
+        "es": "Leer las tareas de Mindwtr del día"
+      },
+      "description": {
+        "en": "Today's and overdue tasks as a sentence, for a message or a voice announcement.",
+        "fr": "Les tâches du jour et en retard en une phrase, pour un message ou une annonce vocale.",
+        "de": "Heutige und überfällige Aufgaben als Satz, für eine Nachricht oder eine Sprachansage.",
+        "es": "Las tareas del día y atrasadas en una frase, para un mensaje o un aviso de voz."
+      },
+      "timeout_seconds": 20,
+      "fields": [
+        {
+          "key": "context",
+          "type": "string",
+          "label": {
+            "en": "Context (empty: all)",
+            "fr": "Contexte (vide : tous)",
+            "de": "Kontext (leer: alle)",
+            "es": "Contexto (vacío: todos)"
+          },
+          "description": {
+            "en": "Only the tasks with this context, e.g. @home.",
+            "fr": "Seulement les tâches de ce contexte, ex. @maison.",
+            "de": "Nur die Aufgaben mit diesem Kontext, z. B. @zuhause.",
+            "es": "Solo las tareas con este contexto, p. ej. @casa."
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "key": "text",
+          "type": "string",
+          "label": {
+            "en": "Sentence",
+            "fr": "Phrase",
+            "de": "Satz",
+            "es": "Frase"
+          }
+        },
+        {
+          "key": "count",
+          "type": "number",
+          "label": {
+            "en": "Tasks for today (overdue included)",
+            "fr": "Tâches du jour (retard compris)",
+            "de": "Aufgaben für heute (überfällige inklusive)",
+            "es": "Tareas para hoy (atrasadas incluidas)"
+          }
+        },
+        {
+          "key": "overdue",
+          "type": "number",
+          "label": {
+            "en": "Overdue tasks",
+            "fr": "Tâches en retard",
+            "de": "Überfällige Aufgaben",
+            "es": "Tareas atrasadas"
+          }
+        },
+        {
+          "key": "inbox",
+          "type": "number",
+          "label": {
+            "en": "Tasks in the inbox",
+            "fr": "Tâches dans la boîte de réception",
+            "de": "Aufgaben im Eingang",
+            "es": "Tareas en la bandeja de entrada"
+          }
         }
       ]
     }
   ],
   "widgets": [
     {
-      "key": "demo_status",
-      "label": { "en": "Demo status", "fr": "État de la démo" },
-      "description": {
-        "en": "Live temperature and plug power, plug connection and observed location.",
-        "fr": "Température et puissance en direct, connexion de la prise, position observée."
+      "key": "tasks_today",
+      "label": {
+        "en": "Mindwtr: today",
+        "fr": "Mindwtr : aujourd'hui",
+        "de": "Mindwtr: heute",
+        "es": "Mindwtr: hoy"
       },
-      "icon": "activity",
-      "action_timeout_seconds": 15
+      "description": {
+        "en": "Tasks due today and overdue, with a button to mark each one done.",
+        "fr": "Les tâches du jour et en retard, avec un bouton pour terminer chacune.",
+        "de": "Heute fällige und überfällige Aufgaben, mit einer Taste zum Erledigen.",
+        "es": "Tareas del día y atrasadas, con un botón para terminar cada una."
+      },
+      "icon": "check-square",
+      "action_timeout_seconds": 20
     }
   ]
 }

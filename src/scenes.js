@@ -1,41 +1,30 @@
 // -----------------------------------------------------------------------------
-// Scene actions (SDK v0.14+, Gladys 5.1+).
+// Scene action handlers (manifest `scene_actions`, Gladys 5.1+). The fields
+// are strings, so a scene variable fits too (`{{triggerEvent.data.task_id}}`).
 //
-// A scene action is an OPERATION a scene author places in a scene, with
-// parameters and a result: "identify this device", "take a snapshot", "clean
-// these rooms". Each one is declared in the manifest `scene_actions` field
-// (key, label, `fields` in the config_schema grammar, scalar `outputs`) and
-// handled here, keyed by that same `key`; index.js registers every entry with
-// `gladys.onSceneAction(key, ...)`.
-//
-// Scene TRIGGERS are the other direction ("this happened"): they are fired by
-// the device that observes the event, see src/devices/motionSensor.js.
-//
-// The rules that matter:
-//   - `fields` arrive RESOLVED: scene variables substituted, defaults applied,
-//     validated by the core; a `"source": "devices"` field is the chosen
-//     device external_id;
-//   - resolve an object of the declared `outputs` (scalars only), readable by
-//     the following actions of the scene, or `undefined` for none. Keys not
-//     declared in the manifest are dropped by the core;
-//   - throwing fails THIS action only: the scene logs it and continues. A
-//     scene action is never a condition: return an output and let the scene
-//     author gate on it;
-//   - never fire a scene event as a consequence of a received action: a scene
-//     bound to that event would loop through the integration.
+//   - `add_task`: add a task to the Mindwtr inbox ("buy bread" from a
+//     button, a voice command), with a due date and contexts if given;
+//   - `complete_task`: mark an open task done, by its exact title or its id;
+//   - `read_today`: today's and overdue tasks as a sentence, for a message
+//     or a voice announcement in the morning.
 // -----------------------------------------------------------------------------
 
-import { createLogger } from '@gladysassistant/integration-sdk';
-import { signalDevice } from './devices/index.js';
-
-const logger = createLogger({ name: 'scenes' });
-
 export const SCENE_ACTIONS = {
-  // The ack is awaited under the action's `timeout_seconds` (15 s in the
-  // manifest), counted from the moment the scene reaches the action.
-  async identify_device(gladys, { fields, config }) {
-    logger.info(`Scene action identify_device <- ${fields.device}`);
-    const signalled = await signalDevice(gladys, fields.device, config);
-    return { signalled };
+  async add_task(hub, { fields = {} }) {
+    const { id, title, dueDate } = await hub.create({
+      title: fields.title,
+      due: fields.due_date,
+      context: fields.context,
+    });
+    return { task: title, task_id: id, due_date: dueDate };
+  },
+
+  async complete_task(hub, { fields = {} }) {
+    const { task } = await hub.complete(fields.task);
+    return { task: task.title, task_id: task.id };
+  },
+
+  async read_today(hub, { fields = {} }) {
+    return hub.today(fields.context);
   },
 };

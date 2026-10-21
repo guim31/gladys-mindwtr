@@ -1,77 +1,116 @@
+// -----------------------------------------------------------------------------
+// The "today" widget: content within the core budget (validated by the SDK's
+// validateWidgetContent), the "done" buttons, and the degraded states.
+// -----------------------------------------------------------------------------
+
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { validateWidgetContent } from '@gladysassistant/integration-sdk';
-import { createFakeGladys } from '@gladysassistant/integration-sdk/testing';
-import { buildDiscoveredDevices } from '../src/devices/index.js';
-import { simulateLanSession } from '../src/devices/plug.js';
-import { DEMO_STATUS_WIDGET, WIDGETS, refreshWidgets } from '../src/widgets.js';
-import { normalizeConfig } from '../src/config.js';
+import { createClock, createWorld } from './helpers/world.js';
 
-const gladys = createFakeGladys();
-const config = normalizeConfig();
-const demoStatus = WIDGETS[DEMO_STATUS_WIDGET];
+async function world(t, options = {}) {
+  const w = await createWorld(options);
+  t.after(() => w.app.stop());
+  return w;
+}
 
-// What the SDK passes to onWidgetGet, plus the config index.js adds.
-const getContent = (cfg = config) =>
-  demoStatus.get(gladys, { settings: {}, language: 'en', units: 'metric', config: cfg });
+async function content(w, language = 'en') {
+  const ack = await w.fake.widgetGet('tasks_today', { settings: {}, language, units: 'metric' });
+  assert.equal(ack.success, true, ack.error);
+  const { content: tree } = ack.data;
+  assert.deepEqual(validateWidgetContent(tree), [], 'within the core vocabulary and budget');
+  return tree;
+}
 
-test('the demo_status content is rendered exactly as sent', async () => {
-  // [] = nothing the core would drop, truncate or trim to the content budget.
-  assert.deepEqual(validateWidgetContent(await getContent()), []);
-});
+const ofType = (data, type) => data.components.filter((component) => component.type === type);
 
-test('the degraded plug connection content is valid too', async () => {
-  simulateLanSession(false);
-  try {
-    const content = await getContent();
-    assert.deepEqual(validateWidgetContent(content), []);
-    const status = content.components.find((component) => component.type === 'status');
-    assert.ok(
-      status.items.some((item) => item.color === 'warning'),
-      'degraded shows a warning',
-    );
-  } finally {
-    simulateLanSession(true);
-  }
-});
-
-test('the live tiles reference features the integration publishes', async () => {
-  const featureIds = new Set(
-    buildDiscoveredDevices(gladys, config).flatMap((device) =>
-      device.features.map((feature) => feature.external_id),
-    ),
+test('tiles, the tasks of the day overdue first, four buttons', async (t) => {
+  const w = await world(t);
+  const data = await content(w);
+  assert.ok(data.components.length <= 8);
+  assert.deepEqual(
+    ofType(data, 'value').map((tile) => [tile.label, tile.value]),
+    [
+      ['Due today', 3],
+      ['Overdue', 2],
+    ],
   );
-  const liveTiles = (await getContent()).components.filter((c) => c.device_feature);
-  assert.ok(liveTiles.length > 0, 'the template demonstrates a device-bound tile');
-  for (const tile of liveTiles) {
-    assert.ok(featureIds.has(tile.device_feature), `unknown feature ${tile.device_feature}`);
-  }
-});
-
-test('every button action of the content is handled and answers a short toast', async () => {
-  const buttons = (await getContent()).components.filter((c) => c.type === 'button' && c.action);
-  assert.ok(buttons.length > 0, 'the template demonstrates a widget action');
-  for (const { action } of buttons) {
-    const message = await demoStatus.action(gladys, {
-      actionKey: action.key,
-      params: action.params ?? {},
-      settings: {},
-      config,
-    });
-    assert.ok(message.en, 'the toast carries at least the mandatory `en` text');
-    assert.ok(message.en.length <= 200, 'toasts are capped at 200 characters');
-  }
-});
-
-test('an unknown widget action fails, so the user sees the error', async () => {
-  await assert.rejects(
-    demoStatus.action(gladys, { actionKey: 'unknown', params: {}, settings: {}, config }),
-    /Unknown widget action/,
+  assert.deepEqual(
+    ofType(data, 'status')[0].items.map((row) => [row.label, row.value, row.color]),
+    [
+      ['Pay the electricity bill', 'Overdue', 'danger'],
+      ['Book the car service', 'Overdue · @phone @errands', 'danger'],
+      ['Take out the bins', '19:00 · @home', 'neutral'],
+      ['Call the plumber', 'today · @phone', 'neutral'],
+    ],
   );
+  const byTitle = (title) => w.server.tasks.find((task) => task.title === title).id;
+  assert.deepEqual(
+    ofType(data, 'button').map((button) => [button.action.key, button.action.params.id]),
+    [
+      ['done_1', byTitle('Pay the electricity bill')],
+      ['done_2', byTitle('Book the car service')],
+      ['done_3', byTitle('Take out the bins')],
+      ['done_4', byTitle('Call the plumber')],
+    ],
+  );
+  const french = await content(w, 'fr');
+  assert.equal(ofType(french, 'status')[0].items[3].value, "aujourd'hui · @phone");
 });
 
-test('refreshWidgets nudges every widget', () => {
-  const fresh = createFakeGladys();
-  refreshWidgets(fresh);
-  assert.deepEqual(fresh.fake.widgetRefreshes, Object.keys(WIDGETS));
+test('nothing left today: a sentence and the next due date', async (t) => {
+  const w = await world(t);
+  for (const task of w.server.tasks) {
+    if (task.dueDate?.startsWith('2026-10-2') && task.dueDate < '2026-10-22') {
+      w.server.markDone(task);
+    }
+  }
+  await w.hub.poll();
+  const data = await content(w);
+  assert.equal(ofType(data, 'text')[0].text, 'Nothing left for today.');
+  assert.deepEqual(
+    ofType(data, 'status')[0].items.map((row) => [row.label, row.value]),
+    [['Water the plants', 'Next · Thu 22 Oct']],
+  );
+  assert.deepEqual(ofType(data, 'button'), []);
+});
+
+test('a "done" button marks the task done and answers a toast', async (t) => {
+  const w = await world(t);
+  const bins = w.server.tasks.find((task) => task.title === 'Take out the bins');
+  const ack = await w.fake.widgetAction('tasks_today', 'done_3', { id: bins.id }, { settings: {} });
+  assert.equal(ack.success, true, ack.error);
+  assert.equal(ack.data.message.fr, '« Take out the bins » terminée.');
+  assert.equal(bins.status, 'done');
+  const bad = await w.fake.widgetAction('tasks_today', 'done_9', { id: bins.id }, { settings: {} });
+  assert.equal(bad.success, false);
+});
+
+test('a stale button completes nothing', async (t) => {
+  const w = await world(t);
+  const bins = w.server.tasks.find((task) => task.title === 'Take out the bins');
+  w.server.markDone(bins); // done on a phone meanwhile
+  const ack = await w.fake.widgetAction('tasks_today', 'done_3', { id: bins.id }, { settings: {} });
+  assert.equal(ack.success, false);
+  assert.match(ack.error, /already done meanwhile/);
+  assert.equal(bins.rev, 2, 'not completed twice');
+});
+
+test('degraded states: not configured, Mindwtr down', async (t) => {
+  const empty = await world(t, { config: { url: '', api_token: '' } });
+  assert.match((await content(empty)).components[0].text, /Enter the address/);
+
+  const w = await world(t);
+  w.server.online = false;
+  await w.hub.poll();
+  const stale = await content(w);
+  assert.equal(stale.components[0].variant, 'caption');
+  assert.deepEqual(ofType(stale, 'button'), [], 'no button while Mindwtr is down');
+
+  const down = await createWorld({ clock: createClock(), connect: false });
+  t.after(() => down.app.stop());
+  down.server.online = false;
+  await down.gladys.connect();
+  await down.app.ready;
+  assert.match((await content(down)).components[0].text, /does not answer/);
 });

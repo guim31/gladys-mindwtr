@@ -1,8 +1,8 @@
 {
-  "name": "gladys-integration-template-js",
+  "name": "gladys-mindwtr",
   "version": "1.0.0",
   "private": true,
-  "description": "Official starter template to build an external integration for Gladys Assistant with the JavaScript SDK.",
+  "description": "Mindwtr integration for Gladys Assistant: GTD counters, due and overdue tasks, inbox review, tasks added or completed from Gladys.",
   "type": "module",
   "main": "index.js",
   "scripts": {

@@ -1,0 +1,20 @@
+{
+  "projects": [
+    {
+      "id": "840be0b7-cdef-41c0-a97d-b9d3f5a977a4",
+      "title": "Home",
+      "color": "#94a3b8",
+      "order": 0,
+      "status": "active",
+      "rev": 1,
+      "revBy": "cloud",
+      "createdAt": "2026-10-21T14:35:46.061Z",
+      "updatedAt": "2026-10-21T14:35:46.061Z",
+      "isSequential": false,
+      "tagIds": []
+    }
+  ],
+  "total": 1,
+  "limit": 500,
+  "offset": 0
+}
