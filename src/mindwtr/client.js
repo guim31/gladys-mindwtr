@@ -127,6 +127,11 @@ export class MindwtrClient {
         status,
       );
     }
+    // An unknown route (a wrong path prefix): the server's generic 404, not
+    // the "Task not found" of a task route.
+    if (status === 404 && !/task not found/i.test(errorText(body))) {
+      throw new MindwtrError(ERROR_KINDS.NOT_MINDWTR, `HTTP 404 ${errorText(body)}`.trim(), status);
+    }
     if (status === 503) {
       throw new MindwtrError(ERROR_KINDS.STORAGE, `HTTP 503 ${errorText(body)}`.trim(), status);
     }

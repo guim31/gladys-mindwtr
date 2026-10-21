@@ -313,6 +313,11 @@ test('an address that is not the sync server, or that does not answer', async (t
   const html = await world(t, { server });
   assert.match(html.fake.connectionStatus.message.en, /no Mindwtr sync server/);
 
+  const prefix = new FakeMindwtr({ now: createClock().now });
+  prefix.handle = () => ({ status: 404, headers: {}, body: '{"error":"Not found"}' });
+  const wrongPath = await world(t, { server: prefix });
+  assert.match(wrongPath.fake.connectionStatus.message.en, /no Mindwtr sync server/);
+
   const storage = new FakeMindwtr({ now: createClock().now });
   storage.failWith = 503;
   const broken = await world(t, { server: storage });
