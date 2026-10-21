@@ -11,13 +11,16 @@ Gladys through
 [`@gladysassistant/integration-sdk`](https://github.com/GladysAssistant/integration-sdk-js),
 its only runtime dependency. It started from the official JavaScript template.
 
+It follows the tasks of [Mindwtr](https://github.com/dongdongbh/Mindwtr) (GTD
+app) through the REST API of its self-hosted sync server, `mindwtr-cloud`.
+
 ## Commands
 
 ```bash
 npm install
 npm test                                  # node --test, the built-in runner
-node --test test/devices.test.js          # one file
-node --test --test-name-pattern "plug"    # tests whose name matches
+node --test test/hub.test.js              # one file
+node --test --test-name-pattern "inbox"   # tests whose name matches
 npm run lint                              # ESLint
 npm run format:check                      # Prettier, as the CI runs it
 npm run format                            # Prettier, fix in place
@@ -32,15 +35,21 @@ pushing.
 
 ```
 index.js                          SDK wiring only: handlers registered before connect()
-src/devices/index.js              registry of the device blueprints + dispatch helpers
-src/devices/<type>.js             one device type per file (buildDevice, onPoll, onSetValue...)
+src/app.js                        registers every SDK handler on the hub (shared with the tests)
+src/hub.js                        reading timer, device states, scene events, commands
+src/devices.js                    the "Mindwtr" device: features, names in 4 languages, states
+src/mindwtr/client.js             REST client of mindwtr-cloud (/v1/tasks, /v1/projects)
+src/mindwtr/http.js               the one network function (node:http/https, self-signed option)
+src/mindwtr/model.js              due dates in the Gladys time zone, counters, typed due dates
 src/scenes.js                     scene action handlers (manifest `scene_actions`)
 src/widgets.js                    dashboard widget handlers (manifest `widgets`)
+src/texts.js                      texts sent to Gladys, 4 languages
+src/store.js                      /data/mindwtr-state.json (events never fired twice)
 src/config.js                     DEFAULT_CONFIG (mirrors the manifest defaults) + normalization
-src/weather.js                    example driver (Open-Meteo)
 gladys-assistant-integration.json manifest: name, config_schema, actions, image...
-docs/en.md, docs/fr.md            user documentation, re-hosted by Gladys (mandatory)
-test/                             node --test, against the SDK's fake Gladys (integration-sdk/testing)
+docs/{en,fr,de,es}.md             user documentation, re-hosted by Gladys (en and fr mandatory)
+test/                             node --test, against the SDK's fake Gladys and test/helpers/fakeMindwtr.js
+test/fixtures/mindwtr/            real answers of mindwtr-cloud 1.3.6 (21/10/2026)
 .github/scripts/release.mjs       release helpers (manifest bump, changelog), tested in test/
 ```
 
@@ -70,8 +79,10 @@ test/                             node --test, against the SDK's fake Gladys (in
   `type: "provider"`: 5.1.0). `test/manifest.test.js` ties the manifest to the
   code (defaults, action, scene and widget handlers): change both sides
   together.
-- **User-facing text** is bilingual (English and French): action messages,
-  manifest texts, and `docs/en.md` / `docs/fr.md`, kept in sync.
+- **User-facing text** exists in English, French, German ("du") and Spanish
+  ("usted"): action messages, widget texts, feature names, manifest texts, and
+  `docs/{en,fr,de,es}.md` with the same sections. `test/i18n.test.js` checks
+  it.
 - **Style.** Prettier formats, ESLint catches mistakes. Comments explain why,
   in English. Tests never touch the network.
 
@@ -197,6 +208,31 @@ code de ce dépôt. Compléter ce fichier quand un nouveau piège est découvert
 - Les filtres de scène ne font qu'égalité et appartenance : un seuil reste le travail d'un capteur.
 - **Les clés de widgets, de déclencheurs et d'actions sont figées une fois publiées.**
 - `gladys_version` `>=5.1.0` dès qu'il y a widgets, déclencheurs ou actions de scène.
+
+## Mindwtr (propre à ce dépôt)
+
+Vérifié sur `apps/cloud/src/server.ts` de dongdongbh/Mindwtr et sur un vrai
+`ghcr.io/dongdongbh/mindwtr-cloud` 1.3.6 en Docker (21/10/2026) :
+
+- **Seul `mindwtr-cloud` a une API.** Dropbox, WebDAV, iCloud et fichier n'en ont pas : la doc le dit en tête.
+  L'appli web (`mindwtr-app`, port 5173) répond du HTML : c'est l'erreur `not_mindwtr`.
+- **Jamais `/v1/data`** : c'est le document entier que les applis synchronisent (un PUT le remplace). Les routes
+  `/v1/tasks` prennent le verrou d'écriture du serveur et fusionnent comme les applis. Un test vérifie qu'aucune
+  requête ne part vers `/v1/data`.
+- Un jeton = une liste de tâches (`MINDWTR_CLOUD_AUTH_TOKENS`, plusieurs séparés par des virgules). L'identité de
+  l'appareil est fixe (`server` / `main`) ; la portée des événements sous `/data` est `adresse|sha256(jeton)[0:16]`.
+- `GET /v1/tasks` sans `all=1` exclut `done` **et** `archived` (pas `reference`, à filtrer côté intégration) ; avec
+  `status=done` sans `all=1`, la liste est toujours vide. `limit` vaut 200 par défaut, 1000 au plus.
+- `props.dueDate` est stocké **sans validation** (`"nope"` passe) : `parseDueInput` valide avant d'envoyer, et
+  `parseDueDate` ignore une date illisible. Format des applis : `YYYY-MM-DD` (due jusqu'à la fin du jour) ou
+  `YYYY-MM-DDTHH:MM` **sans fuseau** (heure locale) : lues dans le fuseau de Gladys (`TZ`).
+- `POST /v1/tasks` avec `input` passe par le parseur quick-add (`#tag`, `@contexte`, `/due:`) : on envoie `title` +
+  `props` pour qu'un titre venu d'une scène reste tel quel.
+- `POST /v1/tasks/:id/complete` sur une tâche **déjà terminée** la termine encore (et une tâche répétée gagne une
+  occurrence de plus) : vérifier qu'elle est ouverte dans une liste fraîche, et sérialiser les complétions.
+- Une tâche répétée terminée crée **une nouvelle tâche** (nouvel id, `createdAt` = l'heure de complétion) : elle ne
+  doit pas déclencher `task_added`. Chaque occurrence a son id : le bouton du widget porte l'id, pas l'échéance.
+- Limite par défaut du serveur : 120 requêtes par minute (`MINDWTR_CLOUD_RATE_MAX`) ; trois par lecture ici.
 
 ## Store
 

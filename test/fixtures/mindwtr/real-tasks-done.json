@@ -1,0 +1,24 @@
+{
+  "tasks": [
+    {
+      "id": "76f63a54-2d34-4e32-ab1e-d463a033adc8",
+      "title": "Water the plants",
+      "dueDate": "2026-10-21",
+      "recurrence": {
+        "rule": "daily"
+      },
+      "status": "done",
+      "tags": [],
+      "contexts": [],
+      "rev": 2,
+      "revBy": "cloud",
+      "createdAt": "2026-10-21T14:35:46.456Z",
+      "updatedAt": "2026-10-21T14:35:46.486Z",
+      "completedAt": "2026-10-21T14:35:46.486Z",
+      "isFocusedToday": false
+    }
+  ],
+  "total": 1,
+  "limit": 500,
+  "offset": 0
+}

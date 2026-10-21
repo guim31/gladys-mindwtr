@@ -1,169 +1,155 @@
 // -----------------------------------------------------------------------------
-// Dashboard widgets (SDK v0.14+, Gladys 5.1+).
+// Dashboard widget (manifest `widgets`, Gladys 5.1+): `tasks_today`.
 //
-// A widget puts the integration's own data on the Gladys dashboard without a
-// dedicated core widget. The manifest `widgets` field declares its identity
-// (key, label, icon, optional per-instance `settings`); at runtime the
-// integration returns a DECLARATIVE content — `text`, `value`, `gauge`,
-// `status`, `chart`, `card-list`, `image`, `button` — that the core renders
-// with its own theme, dark mode and translations. No HTML, no CSS.
+// The use case: the kitchen tablet shows what is due today and what is late,
+// and a tap marks a task done without opening Mindwtr.
 //
-// Each entry of WIDGETS is keyed by the widget `key` and exposes:
-//   - get(gladys, { settings, language, units, config }): the content,
-//     registered by index.js with `gladys.onWidgetGet(key, ...)`;
-//   - action(gladys, { actionKey, params, settings, config }) (optional): a
-//     tapped `button` carrying an `action`, registered with
-//     `gladys.onWidgetAction`.
-//
-// Check your contents in the tests with `validateWidgetContent` (exported by
-// the SDK, see test/widgets.test.js), or run with DEBUG=gladys-integration-sdk
-// to have the SDK log every violation of the vocabulary and the budget.
+// Budget (8 components, 2 texts): two tiles (due today, overdue), one status
+// list (overdue first, with their time and context) and a "done" button for
+// each of the four most urgent ones. Nothing left: a sentence and the next
+// due date. The figures are values, not bound to device features, so the
+// widget works before the device is added.
 // -----------------------------------------------------------------------------
 
-import {
-  createLogger,
-  DEVICE_FEATURE_CATEGORIES,
-  DEVICE_TRANSPORTS,
-  WIDGET_COLORS,
-} from '@gladysassistant/integration-sdk';
-import { identifyDevice } from './devices/index.js';
-import { weatherStation } from './devices/weatherStation.js';
-import { plug } from './devices/plug.js';
-import { light } from './devices/light.js';
+import { WIDGET_COLORS } from '@gladysassistant/integration-sdk';
+import { formatDue } from './devices.js';
+import { MindwtrHub, WIDGET_KEY } from './hub.js';
+import { localDay } from './mindwtr/model.js';
+import { pick } from './texts.js';
 
-const logger = createLogger({ name: 'widgets' });
+// Action keys of the buttons: permanent once published (unique, the core
+// drops a button whose key is taken).
+export const DONE_ACTIONS = ['done_1', 'done_2', 'done_3', 'done_4'];
+const MAX_ROWS = 10;
 
-// Widget key, as declared in the manifest `widgets` field.
-export const DEMO_STATUS_WIDGET = 'demo_status';
-
-// Keys of the `button` actions the demo_status content declares.
-const DEMO_STATUS_ACTIONS = { IDENTIFY_LIGHT: 'identify_light' };
-
-// How the plug transport reads in the status list.
-const TRANSPORT_STATUS = {
-  [DEVICE_TRANSPORTS.LOCAL]: { value: { en: 'Local', fr: 'Locale' }, color: WIDGET_COLORS.SUCCESS },
-  [DEVICE_TRANSPORTS.CLOUD]: { value: { en: 'Cloud', fr: 'Cloud' }, color: WIDGET_COLORS.INFO },
-  [DEVICE_TRANSPORTS.UNREACHABLE]: {
-    value: { en: 'Unreachable', fr: 'Injoignable' },
-    color: WIDGET_COLORS.DANGER,
+export const TEXT = {
+  configure: {
+    en: 'Enter the address of your Mindwtr sync server and its token in the configuration of the integration.',
+    fr: "Saisissez l'adresse de votre serveur de synchronisation Mindwtr et son jeton dans la configuration de l'intégration.",
+    de: 'Gib die Adresse deines Mindwtr-Sync-Servers und sein Token in der Konfiguration der Integration ein.',
+    es: 'Introduzca la dirección de su servidor de sincronización Mindwtr y su token en la configuración de la integración.',
   },
+  noAnswer: {
+    en: 'Mindwtr does not answer: see the Configuration screen of the integration.',
+    fr: "Mindwtr ne répond pas : voir l'écran Configuration de l'intégration.",
+    de: 'Mindwtr antwortet nicht: Sieh dir die Konfiguration der Integration an.',
+    es: 'Mindwtr no responde: consulte la pantalla de configuración de la integración.',
+  },
+  stale: {
+    en: 'Mindwtr does not answer: last known tasks.',
+    fr: 'Mindwtr ne répond pas : dernières tâches connues.',
+    de: 'Mindwtr antwortet nicht: zuletzt bekannte Aufgaben.',
+    es: 'Mindwtr no responde: últimas tareas conocidas.',
+  },
+  nothing: {
+    en: 'Nothing left for today.',
+    fr: "Plus rien pour aujourd'hui.",
+    de: 'Für heute ist nichts mehr übrig.',
+    es: 'No queda nada para hoy.',
+  },
+  dueToday: { en: 'Due today', fr: "Aujourd'hui", de: 'Heute fällig', es: 'Para hoy' },
+  overdue: { en: 'Overdue', fr: 'En retard', de: 'Überfällig', es: 'Atrasadas' },
+  next: { en: 'Next', fr: 'Prochaine', de: 'Nächste', es: 'Próxima' },
 };
 
-// A live tile references a feature by its external_id: read it from the
-// discovery payload itself, so the widget and the device never disagree.
-function featureExternalId(gladys, config, blueprint, category) {
-  const device = blueprint.buildDevice(gladys, config);
-  return device.features.find((feature) => feature.category === category).external_id;
+const t = (text, language) => pick(text, language);
+const fit = (text, max) => (text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text);
+
+function message(text, language) {
+  return {
+    ttl_seconds: 300,
+    components: [{ type: 'text', variant: 'body', text: t(text, language) }],
+  };
 }
 
-function plugConnectionStatus(gladys, config) {
-  const { transport, degraded } = plug.transport(gladys, config);
-  const { value, color } = TRANSPORT_STATUS[transport];
-  if (degraded) {
-    return {
-      value: { en: `${value.en} (degraded mode)`, fr: `${value.fr} (mode dégradé)` },
-      color: WIDGET_COLORS.WARNING,
-    };
+/** The status row of a task: overdue, or when it is due; and its contexts. */
+function taskRow(task, { now, context }) {
+  const late = task.dueAt < now;
+  const when = late ? t(TEXT.overdue, context.language) : formatDue(task, context);
+  const where = task.contexts.join(' ');
+  return {
+    label: fit(task.title, 40),
+    icon: late ? 'alert-circle' : task.status === 'waiting' ? 'pause-circle' : 'clock',
+    value: fit(where ? `${when} · ${where}` : when, 40),
+    color: late ? WIDGET_COLORS.DANGER : WIDGET_COLORS.NEUTRAL,
+  };
+}
+
+async function get(hub, { language = 'en' }) {
+  if (!hub.client) {
+    return message(TEXT.configure, language);
   }
-  return { value, color };
+  if (hub.error && hub.readAt === 0) {
+    return message(TEXT.noAnswer, language);
+  }
+  const now = hub.now();
+  const context = { timeZone: hub.timeZone, language, day: localDay(now, hub.timeZone) };
+  const summary = hub.summary();
+  const components = [];
+  if (hub.error) {
+    components.push({ type: 'text', variant: 'caption', text: t(TEXT.stale, language) });
+  }
+  components.push(
+    {
+      type: 'value',
+      value: summary.dueToday,
+      label: t(TEXT.dueToday, language),
+      icon: 'calendar',
+    },
+    {
+      type: 'value',
+      value: summary.overdue,
+      label: t(TEXT.overdue, language),
+      icon: 'alert-circle',
+      color: summary.overdue > 0 ? WIDGET_COLORS.DANGER : WIDGET_COLORS.SUCCESS,
+    },
+  );
+  if (summary.today.length === 0) {
+    components.push({ type: 'text', variant: 'body', text: t(TEXT.nothing, language) });
+    if (summary.nextDue) {
+      components.push({
+        type: 'status',
+        items: [
+          {
+            label: fit(summary.nextDue.title, 40),
+            icon: 'calendar',
+            value: fit(`${t(TEXT.next, language)} · ${formatDue(summary.nextDue, context)}`, 40),
+            color: WIDGET_COLORS.NEUTRAL,
+          },
+        ],
+      });
+    }
+    return { ttl_seconds: 300, components };
+  }
+  components.push({
+    type: 'status',
+    items: summary.today.slice(0, MAX_ROWS).map((task) => taskRow(task, { now, context })),
+  });
+  if (!hub.error) {
+    // The id travels with the button: Mindwtr gives each occurrence of a
+    // repeating task its own id, so a tap on a stale widget finds the task
+    // done and completes nothing.
+    summary.today.slice(0, DONE_ACTIONS.length).forEach((task, index) => {
+      components.push({
+        type: 'button',
+        label: fit(task.title, 24),
+        icon: 'check',
+        style: 'secondary',
+        action: { key: DONE_ACTIONS[index], params: { id: task.id } },
+      });
+    });
+  }
+  return { ttl_seconds: 300, components };
+}
+
+async function action(hub, { actionKey, params = {} }) {
+  if (!DONE_ACTIONS.includes(actionKey) || typeof params.id !== 'string' || !params.id) {
+    throw new Error(`Unknown action ${actionKey}`);
+  }
+  const { task } = await hub.complete(params.id, { byId: true });
+  return { message: MindwtrHub.doneMessage(task.title) };
 }
 
 export const WIDGETS = {
-  [DEMO_STATUS_WIDGET]: {
-    // `settings` holds the per-instance values of the declared `settings`
-    // (none here); `language` and `units` are those of the user viewing the
-    // dashboard, for the values you format yourself. Multi-language objects
-    // (`{ en, fr }`) are picked by the core, like everywhere else.
-    async get(gladys, { config }) {
-      logger.debug(`onWidgetGet <- ${DEMO_STATUS_WIDGET}`);
-      return {
-        // Reload policy: the computed parts below only change with the
-        // config, and index.js nudges the widget on every (re)connection and
-        // config update (see refreshWidgets) — the TTL is just a safety net.
-        ttl_seconds: 300,
-        components: [
-          // Device-bound tiles: LIVE, they follow the published states over
-          // the core's real-time path. No TTL, no nudge involved.
-          {
-            type: 'value',
-            label: { en: 'Temperature', fr: 'Température' },
-            icon: 'thermometer',
-            device_feature: featureExternalId(
-              gladys,
-              config,
-              weatherStation,
-              DEVICE_FEATURE_CATEGORIES.TEMPERATURE_SENSOR,
-            ),
-          },
-          {
-            type: 'value',
-            label: { en: 'Office plug', fr: 'Prise du bureau' },
-            icon: 'zap',
-            device_feature: featureExternalId(
-              gladys,
-              config,
-              plug,
-              DEVICE_FEATURE_CATEGORIES.ENERGY_SENSOR,
-            ),
-          },
-          // Computed rows: what the integration knows that no device feature
-          // carries. Served from the core cache until the TTL or a nudge.
-          {
-            type: 'status',
-            items: [
-              {
-                label: { en: 'Plug connection', fr: 'Connexion de la prise' },
-                icon: 'wifi',
-                ...plugConnectionStatus(gladys, config),
-              },
-              {
-                label: { en: 'Observed location', fr: 'Position observée' },
-                icon: 'map-pin',
-                value: `${config.latitude.toFixed(2)}, ${config.longitude.toFixed(2)}`,
-                color: WIDGET_COLORS.NEUTRAL,
-              },
-            ],
-          },
-          // `params` are declared HERE and sent back as-is: the handler never
-          // receives user input (a dashboard can hang on a public wall).
-          {
-            type: 'button',
-            label: { en: 'Identify the light', fr: 'Identifier la lampe' },
-            icon: 'eye',
-            style: 'secondary',
-            action: {
-              key: DEMO_STATUS_ACTIONS.IDENTIFY_LIGHT,
-              params: { device: light.deviceExternalId(gladys) },
-            },
-          },
-        ],
-      };
-    },
-
-    // Resolve an optional toast (string or multi-language object, ≤ 200
-    // characters). After a successful action the core drops the cached
-    // content and every open dashboard refetches it: no nudge needed.
-    async action(gladys, { actionKey, params, config }) {
-      logger.info(`onWidgetAction <- ${DEMO_STATUS_WIDGET}.${actionKey}`);
-      if (actionKey === DEMO_STATUS_ACTIONS.IDENTIFY_LIGHT) {
-        return identifyDevice(gladys, params.device, config);
-      }
-      // Throwing acks the action as failed: the message reaches the user.
-      throw new Error(`Unknown widget action: ${actionKey}`);
-    },
-  },
+  [WIDGET_KEY]: { get, action },
 };
-
-/**
- * Freshness nudge: ask the core to re-pull every widget NOW instead of
- * waiting for the content TTL. Call it when you KNOW a computed content
- * changed (here: the config, which drives the plug transport and the observed
- * location) — and after every (re)connection, since the nudges are
- * fire-and-forget: rate-limited core-side to 1 per 10 s per widget, dropped
- * silently while disconnected.
- */
-export function refreshWidgets(gladys) {
-  for (const key of Object.keys(WIDGETS)) {
-    gladys.requestWidgetRefresh(key);
-  }
-}

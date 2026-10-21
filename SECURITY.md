@@ -30,6 +30,21 @@ Gladys before reporting a problem.
 
 In scope: the code of this repository and the Docker image it publishes.
 
+What the integration handles:
+
+- the **Mindwtr sync token**, stored by Gladys in the integration
+  configuration (a `secret` field), sent only to the configured sync server in
+  the `Authorization` header, and never logged. It is the same token as the
+  apps' sync: whoever holds it can read and change the whole task list;
+- under `/data`, only `mindwtr-state.json`: the configured address, a SHA-256
+  hash prefix of the token (to tell two task lists apart, not the token), the
+  time of the last reading, the ids of the open tasks and the time of the last
+  inbox review (no task title);
+- network: outgoing HTTP(S) requests to the configured sync server only. The
+  integration never writes the sync document (`/v1/data`). With "Accept
+  self-signed certificates" ticked, the certificate of that address is not
+  verified.
+
 Out of scope: Gladys Assistant itself (see its
 [security policy](https://github.com/GladysAssistant/Gladys/security/policy)),
-and the third-party services and devices the integration talks to.
+and Mindwtr itself.
