@@ -10,6 +10,8 @@ the notes of the version's GitHub Release.
 
 ## [Unreleased]
 
+## [1.0.0] - 2026-10-21
+
 ### Added
 
 - Mindwtr tasks in Gladys, through the self-hosted sync server
@@ -28,3 +30,6 @@ the notes of the version's GitHub Release.
   today's Mindwtr tasks" (a sentence for a message or a voice announcement).
 - Counters and events on time at each due time, inbox review and local
   midnight, whatever the refresh interval (1 to 10 minutes).
+
+[Unreleased]: https://github.com/guim31/gladys-mindwtr/compare/v1.0.0...HEAD
+[1.0.0]: https://github.com/guim31/gladys-mindwtr/releases/tag/v1.0.0
