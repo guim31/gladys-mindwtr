@@ -8,8 +8,8 @@
     "de": "Mindwtr-GTD-Aufgaben über den Sync-Server: Eingang, heute, überfällig, Erfassen per Szene.",
     "es": "Tareas GTD de Mindwtr vía su servidor: bandeja de entrada, hoy, atrasadas, captura por escena."
   },
-  "version": "1.0.0",
-  "docker_image": "ghcr.io/guim31/gladys-mindwtr:1.0.0",
+  "version": "1.0.1",
+  "docker_image": "ghcr.io/guim31/gladys-mindwtr:1.0.1",
   "gladys_version": ">=5.1.0",
   "cover_image": "https://raw.githubusercontent.com/guim31/gladys-mindwtr/main/cover.png",
   "categories": ["services"],

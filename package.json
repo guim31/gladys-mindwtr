@@ -1,6 +1,6 @@
 {
   "name": "gladys-mindwtr",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Mindwtr integration for Gladys Assistant: GTD counters, due and overdue tasks, inbox review, tasks added or completed from Gladys.",
   "type": "module",
